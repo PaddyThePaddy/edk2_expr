@@ -1,0 +1,277 @@
+use super::{ExprError, token::*};
+use std::str::FromStr;
+use lalrpop_util::ParseError;
+use unescaper::unescape;
+use uuid::Uuid;
+
+grammar;
+
+extern {
+    type Error = crate::ExprError;
+}
+
+match {
+    r"TRUE",
+    r"true",
+    r"True",
+    r"FALSE",
+    r"False",
+    r"false",
+    r"GE",
+    r"GT",
+    r"LE",
+    r"LT",
+    r"NE",
+    r"EQ",
+    r"AND",
+    r"and",
+    r"OR",
+    r"or",
+    r"xor",
+    r"XOR",
+    r"in",
+    r"IN"
+}else {
+    _
+}
+
+Literals: ExprVal = {
+    <g: GuidLiteral> => ExprVal::Guid(g),
+    <b: BooleanLiteral> => ExprVal::Bool(b),
+    <i: IntegerLiteral> => ExprVal::Int(i),
+    <s: StringLiteral> => ExprVal::String(s),
+    <m: MacroVal> => ExprVal::Macro(m.to_string()),
+    <p: PcdName> => ExprVal::Pcd(p.0.to_string(), p.1.to_string()),
+    <l: ListLiteral> => ExprVal::List(l),
+};
+
+BooleanLiteral: bool = {
+    r"TRUE" => true,
+    r"true" => true,
+    r"True" => true,
+    r"FALSE" => false,
+    r"False" => false,
+    r"false" => false,
+};
+
+pub DoubleQuoteStr: String = <s: r#""(\\x[0-9a-fA-F]{2}|\\u\{[0-9a-fA-F]{4}\}|\\[0tnr"'\\]|[^"\\])*""#> =>? unescape(&s[1..s.len() - 1]).map_err(|e| ParseError::User{
+    error: ExprError::from(e)
+});
+SingleQuoteStr: String = <s: r#"'(\\x[0-9a-fA-F]{2}|\\u\{[0-9a-fA-F]{4}\}|\\[0tnr"'\\]|[^'\\])*'"#> =>? unescape(&s[1..s.len() - 1]).map_err(|e| ParseError::User{
+    error: ExprError::from(e)
+});
+WideDoubleQuoteStr: String = {"L" <DoubleQuoteStr>};
+WideSingleQuoteStr: String = {"L" <SingleQuoteStr>};
+
+StringLiteral: String = {
+    DoubleQuoteStr,
+    SingleQuoteStr,
+    WideDoubleQuoteStr,
+    WideSingleQuoteStr,
+};
+
+ListLiteral: Vec<String> = {
+    r"\[" <mut v:(<StringLiteral> r"\s*,\s*")*> <e:StringLiteral?> r"\]" => match e {
+        None => v,
+        Some(e) => {
+            v.push(e);
+            v
+        }
+    }
+}
+
+IntegerLiteral: u64 = {
+    Uint64
+};
+
+Uint64: u64 = {
+    r"[0-9]|[1-9][0-9]*" =>? u64::from_str(<>)
+        .map_err(|e| ParseError::User {
+            error: ExprError::from(e)
+        }),
+    <s: r"(0x|0X)[0-9a-fA-F]+"> =>? u64::from_str_radix(&s[2..], 16)
+        .map_err(|e| ParseError::User {
+            error: ExprError::from(e)
+        }),
+}
+
+Uint32: u32 = {
+    r"[0-9]|[1-9][0-9]*" =>? u32::from_str(<>)
+        .map_err(|e| ParseError::User {
+            error: ExprError::from(e)
+        }),
+    <s: r"(0x|0X)[0-9a-fA-F]+"> =>? u32::from_str_radix(&s[2..], 16)
+        .map_err(|e| ParseError::User {
+            error: ExprError::from(e)
+        }),
+}
+
+Uint16: u16 = {
+    r"[0-9]|[1-9][0-9]*" =>? u16::from_str(<>)
+        .map_err(|e| ParseError::User {
+            error: ExprError::from(e)
+        }),
+    <s: r"(0x|0X)[0-9a-fA-F]+"> =>? u16::from_str_radix(&s[2..], 16)
+        .map_err(|e| ParseError::User {
+            error: ExprError::from(e)
+        }),
+}
+
+Uint8: u8 = {
+    r"[0-9]|[1-9][0-9]*" =>? u8::from_str(<>)
+        .map_err(|e| ParseError::User {
+            error: ExprError::from(e)
+        }),
+    <s: r"(0x|0X)[0-9a-fA-F]+"> =>? u8::from_str_radix(&s[2..], 16)
+        .map_err(|e| ParseError::User {
+            error: ExprError::from(e)
+        }),
+}
+
+RFormatGuid: Uuid = {
+    <s: r#"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"#> =>? uuid::Uuid::parse_str(s)
+        .map_err(|e| ParseError::User {
+            error: ExprError::from(e)
+        }),
+};
+
+CFormatGuid: Uuid = {
+    r"\{\s*" <Uint32> r"\s*,\s*" <Uint16> r"\s*,\s*" <Uint16> r"\s*,\s*\{\s*" <Uint8> r"\s*,\s*" <Uint8> r"\s*,\s*" <Uint8> r"\s*,\s*" <Uint8> r"\s*,\s*" <Uint8> r"\s*,\s*" <Uint8> r"\s*,\s*" <Uint8> r"\s*,\s*" <Uint8> r"\s*\}\s*\}" => super::convert_c_format_guid((<>)),
+
+};
+
+GuidLiteral: Uuid = {
+    RFormatGuid,
+    CFormatGuid,
+};
+
+CName: &'input str = {
+    <r"[a-zA-Z]\w*"> => <>,
+};
+
+MacroVal: &'input str = {
+    r"\$\(" <CName> r"\)" => <>,
+};
+
+PcdName: (&'input str, &'input str) = {
+    <space: CName> r"\." <name: CName> => (space, name)
+};
+
+//GuidVal: Uuid = {
+//    r#"""# <RFormatGuid> r#"""# => <>,
+//    CFormatGuid,
+//};
+//
+//GuidStr: Uuid = {
+//    r"GUID\(" <GuidVal> r"\)" => <>,
+//};
+
+IntegerOps: ExprOp = {
+    "~" => ExprOp::BitNot,
+};
+
+ScalarOps: ExprOp = {
+    "NOT" => ExprOp::Not,
+    "not" => ExprOp::Not,
+    "!" => ExprOp::Not,
+};
+
+UnaryOps: ExprOp = {
+    IntegerOps,
+    ScalarOps,
+};
+
+UnaryExpression:Expr =  {
+    <Literals> => Expr::Value(<>),
+    r"\(" <Expression> r"\)" => <>,
+    <op: UnaryOps> <e: UnaryExpression> => Expr::UnaryOp(op, Box::new(e)),
+};
+
+MultiplicativeExpress: Expr = {
+    <a: MultiplicativeExpress> r"\*" <b: UnaryExpression> => Expr::BinaryOp(Box::new(a), ExprOp::Mul, Box::new(b)),
+    <a: MultiplicativeExpress> r"\/" <b: UnaryExpression> => Expr::BinaryOp(Box::new(a), ExprOp::Div, Box::new(b)),
+    <a: MultiplicativeExpress> r"%" <b: UnaryExpression> => Expr::BinaryOp(Box::new(a), ExprOp::Mod, Box::new(b)),
+    UnaryExpression,
+};
+
+AdditiveExpress: Expr = {
+    <a: AdditiveExpress> r"\+" <b: MultiplicativeExpress> => Expr::BinaryOp(Box::new(a), ExprOp::Add, Box::new(b)),
+    <a: AdditiveExpress> r"-" <b: MultiplicativeExpress> => Expr::BinaryOp(Box::new(a), ExprOp::Sub, Box::new(b)),
+    MultiplicativeExpress,
+}
+
+ShiftExpress: Expr = {
+    <a: ShiftExpress> r"<<" <b: AdditiveExpress> => Expr::BinaryOp(Box::new(a), ExprOp::Lsh, Box::new(b)),
+    <a: ShiftExpress> r">>" <b: AdditiveExpress> => Expr::BinaryOp(Box::new(a), ExprOp::Rsh, Box::new(b)),
+    AdditiveExpress,
+}
+
+RelationExpress: Expr = {
+    <a: RelationExpress> r"<"  <b: ShiftExpress> => Expr::BinaryOp(Box::new(a), ExprOp::Lt, Box::new(b)),
+    <a: RelationExpress> r"LT" <b: ShiftExpress> => Expr::BinaryOp(Box::new(a), ExprOp::Lt, Box::new(b)),
+    <a: RelationExpress> r">"  <b: ShiftExpress> => Expr::BinaryOp(Box::new(a), ExprOp::Gt, Box::new(b)),
+    <a: RelationExpress> r"GT" <b: ShiftExpress> => Expr::BinaryOp(Box::new(a), ExprOp::Gt, Box::new(b)),
+    <a: RelationExpress> r"<=" <b: ShiftExpress> => Expr::BinaryOp(Box::new(a), ExprOp::Le, Box::new(b)),
+    <a: RelationExpress> r"LE" <b: ShiftExpress> => Expr::BinaryOp(Box::new(a), ExprOp::Le, Box::new(b)),
+    <a: RelationExpress> r">=" <b: ShiftExpress> => Expr::BinaryOp(Box::new(a), ExprOp::Ge, Box::new(b)),
+    <a: RelationExpress> r"GE" <b: ShiftExpress> => Expr::BinaryOp(Box::new(a), ExprOp::Ge, Box::new(b)),
+    ShiftExpress,
+}
+
+EqualityExpression: Expr = {
+    <a: EqualityExpression> r"==" <b: RelationExpress> => Expr::BinaryOp(Box::new(a), ExprOp::Eq, Box::new(b)),
+    <a: EqualityExpression> r"EQ" <b: RelationExpress> => Expr::BinaryOp(Box::new(a), ExprOp::Eq, Box::new(b)),
+    <a: EqualityExpression> r"!=" <b: RelationExpress> => Expr::BinaryOp(Box::new(a), ExprOp::Ne, Box::new(b)),
+    <a: EqualityExpression> r"NE" <b: RelationExpress> => Expr::BinaryOp(Box::new(a), ExprOp::Ne, Box::new(b)),
+    RelationExpress,
+}
+
+BitwiseAndExpression: Expr = {
+    <a: BitwiseAndExpression> r"&" <b: EqualityExpression> => Expr::BinaryOp(Box::new(a), ExprOp::BitAnd, Box::new(b)),
+    EqualityExpression,
+}
+
+BitwiseXorExpression: Expr = {
+    <a: BitwiseXorExpression> r"\^" <b: BitwiseAndExpression> => Expr::BinaryOp(Box::new(a), ExprOp::BitXor, Box::new(b)),
+    BitwiseAndExpression,
+}
+
+BitwiseOrExpression: Expr = {
+    <a: BitwiseOrExpression> r"\|" <b: BitwiseXorExpression> => Expr::BinaryOp(Box::new(a), ExprOp::BitOr, Box::new(b)),
+    BitwiseXorExpression,
+}
+
+LogicalAndExpression: Expr = {
+    <a: LogicalAndExpression> r"&&"  <b: BitwiseOrExpression> => Expr::BinaryOp(Box::new(a), ExprOp::And, Box::new(b)),
+    <a: LogicalAndExpression> r"AND" <b: BitwiseOrExpression> => Expr::BinaryOp(Box::new(a), ExprOp::And, Box::new(b)),
+    <a: LogicalAndExpression> r"and" <b: BitwiseOrExpression> => Expr::BinaryOp(Box::new(a), ExprOp::And, Box::new(b)),
+    BitwiseOrExpression,
+}
+
+LogicalXorExpression: Expr = {
+    <a: LogicalXorExpression> r"xor" <b: LogicalAndExpression> => Expr::BinaryOp(Box::new(a), ExprOp::Xor, Box::new(b)),
+    <a: LogicalXorExpression> r"XOR" <b: LogicalAndExpression> => Expr::BinaryOp(Box::new(a), ExprOp::Xor, Box::new(b)),
+    LogicalAndExpression,
+}
+
+LogicalOrExpression: Expr = {
+    <a: LogicalOrExpression> r"or" <b: LogicalXorExpression> => Expr::BinaryOp(Box::new(a), ExprOp::Or, Box::new(b)),
+    <a: LogicalOrExpression> r"OR" <b: LogicalXorExpression> => Expr::BinaryOp(Box::new(a), ExprOp::Or, Box::new(b)),
+    <a: LogicalOrExpression> r"\|\|" <b: LogicalXorExpression> => Expr::BinaryOp(Box::new(a), ExprOp::Or, Box::new(b)),
+    LogicalXorExpression,
+}
+
+TernaryConditionExpression: Expr = {
+    <a: TernaryConditionExpression> r"\?" <b: LogicalOrExpression> r":" <c: LogicalOrExpression> => Expr::TernaryCond(Box::new(a), Box::new(b), Box::new(c)),
+    LogicalOrExpression,
+}
+
+InExpression: Expr = {
+    <e: LogicalOrExpression> r"in" <l: LogicalOrExpression> => Expr::BinaryOp(Box::new(e), ExprOp::In, Box::new(l)),
+    <e: LogicalOrExpression> r"IN" <l: LogicalOrExpression> => Expr::BinaryOp(Box::new(e), ExprOp::In, Box::new(l)),
+}
+
+pub Expression: Expr = {
+    TernaryConditionExpression,
+    InExpression,
+}
