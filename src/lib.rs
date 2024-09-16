@@ -6,11 +6,14 @@ use std::{
 
 use expr::ExpressionParser;
 use lalrpop_util::lalrpop_mod;
-use token::{Expr, ExprOp, ExprVal};
 use uuid::Uuid;
 
 lalrpop_mod!(expr);
-pub mod token;
+mod token;
+
+pub use token::Expr;
+pub use token::ExprOp;
+pub use token::ExprVal;
 
 pub type ExprResult<T> = Result<T, ExprError>;
 #[derive(Debug, thiserror::Error, strum_macros::EnumIs)]
