@@ -273,6 +273,12 @@ mod test {
             )
             .unwrap(),
             (2 * (5 + 4) / 3 + (5 + 2)).into()
-        )
+        );
+        assert_eq!(eval(r#"defined "NOBODY""#, &dict).unwrap(), false.into());
+        assert_eq!(eval(r#"defined "TEST_MACRO""#, &dict).unwrap(), true.into());
+        assert_eq!(
+            eval(r#"defined "gTestSpaceGuid.PcdTestPcdName""#, &dict).unwrap(),
+            true.into()
+        );
     }
 }

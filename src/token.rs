@@ -38,6 +38,7 @@ pub enum ExprOp {
     Xor,
     Mod,
     In,
+    Defined,
 }
 
 #[derive(
@@ -282,6 +283,12 @@ impl Expr {
                                     vec!["Int", "Bool"],
                                 ))?;
                             Ok(Cow::Owned(Expr::Value(ExprVal::Int(!operand))))
+                        }
+                        ExprOp::Defined => {
+                            let operand = operand.try_as_string_ref().ok_or(
+                                ExprError::InvalidOperandType(operand.type_str(), vec!["String"]),
+                            )?;
+                            Ok(Cow::Owned(dict.contains_key(operand).into()))
                         }
                         _ => Err(ExprError::InvalidUnaryOp(*op)),
                     }

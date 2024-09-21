@@ -30,7 +30,7 @@ match {
     r"xor",
     r"XOR",
     r"in",
-    r"IN"
+    r"IN",
 }else {
     _
 }
@@ -173,6 +173,9 @@ IntegerOps: ExprOp = {
 ScalarOps: ExprOp = {
     "NOT" => ExprOp::Not,
     "not" => ExprOp::Not,
+    "defined" => ExprOp::Defined,
+    "Defined" => ExprOp::Defined,
+    "DEFINED" => ExprOp::Defined,
     "!" => ExprOp::Not,
 };
 
