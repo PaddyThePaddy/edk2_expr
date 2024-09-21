@@ -31,6 +31,8 @@ match {
     r"XOR",
     r"in",
     r"IN",
+    r"not_in",
+    r"NOT_IN",
 }else {
     _
 }
@@ -176,6 +178,9 @@ ScalarOps: ExprOp = {
     "defined" => ExprOp::Defined,
     "Defined" => ExprOp::Defined,
     "DEFINED" => ExprOp::Defined,
+    "undefined" => ExprOp::Undefined,
+    "Undefined" => ExprOp::Undefined,
+    "UNDEFINED" => ExprOp::Undefined,
     "!" => ExprOp::Not,
 };
 
@@ -272,6 +277,8 @@ TernaryConditionExpression: Expr = {
 InExpression: Expr = {
     <e: LogicalOrExpression> r"in" <l: LogicalOrExpression> => Expr::BinaryOp(Box::new(e), ExprOp::In, Box::new(l)),
     <e: LogicalOrExpression> r"IN" <l: LogicalOrExpression> => Expr::BinaryOp(Box::new(e), ExprOp::In, Box::new(l)),
+    <e: LogicalOrExpression> r"not_in" <l: LogicalOrExpression> => Expr::BinaryOp(Box::new(e), ExprOp::NotIn, Box::new(l)),
+    <e: LogicalOrExpression> r"NOT_IN" <l: LogicalOrExpression> => Expr::BinaryOp(Box::new(e), ExprOp::NotIn, Box::new(l)),
 }
 
 pub Expression: Expr = {

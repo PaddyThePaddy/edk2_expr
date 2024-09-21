@@ -38,7 +38,25 @@ pub enum ExprOp {
     Xor,
     Mod,
     In,
+    NotIn,
     Defined,
+    Undefined,
+}
+
+impl ExprOp {
+    pub fn flip(self) -> Option<Self> {
+        match self {
+            ExprOp::Eq => Some(ExprOp::Ne),
+            ExprOp::Ne => Some(ExprOp::Eq),
+            ExprOp::Ge => Some(ExprOp::Lt),
+            ExprOp::Gt => Some(ExprOp::Le),
+            ExprOp::Le => Some(ExprOp::Gt),
+            ExprOp::Lt => Some(ExprOp::Ge),
+            ExprOp::Defined => Some(ExprOp::Undefined),
+            ExprOp::Undefined => Some(ExprOp::Defined),
+            _ => None,
+        }
+    }
 }
 
 #[derive(
@@ -234,6 +252,18 @@ impl Expr {
                             )?;
                             Ok(Cow::Owned(Expr::Value(ExprVal::Bool(rhs.contains(lhs)))))
                         }
+                        ExprOp::NotIn => {
+                            let lhs =
+                                lhs.try_as_string_ref()
+                                    .ok_or(ExprError::InvalidOperandType(
+                                        lhs.type_str(),
+                                        vec!["String"],
+                                    ))?;
+                            let rhs = rhs.try_as_list_ref().ok_or(
+                                ExprError::InvalidOperandType(rhs.type_str(), vec!["List"]),
+                            )?;
+                            Ok(Cow::Owned(Expr::Value(ExprVal::Bool(!rhs.contains(lhs)))))
+                        }
                         ExprOp::Eq | ExprOp::Ne => {
                             if lhs.type_str() != rhs.type_str() {
                                 return Err(ExprError::InvalidOperandType(
@@ -289,6 +319,12 @@ impl Expr {
                                 ExprError::InvalidOperandType(operand.type_str(), vec!["String"]),
                             )?;
                             Ok(Cow::Owned(dict.contains_key(operand).into()))
+                        }
+                        ExprOp::Undefined => {
+                            let operand = operand.try_as_string_ref().ok_or(
+                                ExprError::InvalidOperandType(operand.type_str(), vec!["String"]),
+                            )?;
+                            Ok(Cow::Owned((!dict.contains_key(operand)).into()))
                         }
                         _ => Err(ExprError::InvalidUnaryOp(*op)),
                     }

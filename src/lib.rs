@@ -232,6 +232,24 @@ mod test {
         );
         assert_eq!(
             ExpressionParser::new()
+                .parse(r#""X64" not_in $(ARCH_LIST)"#)
+                .unwrap()
+                .eval(&dict)
+                .unwrap()
+                .into_owned(),
+            false.into()
+        );
+        assert_eq!(
+            ExpressionParser::new()
+                .parse(r#""AARCH" not_in $(ARCH_LIST)"#)
+                .unwrap()
+                .eval(&dict)
+                .unwrap()
+                .into_owned(),
+            true.into()
+        );
+        assert_eq!(
+            ExpressionParser::new()
                 .parse(r#"1 << 5 % 3"#)
                 .unwrap()
                 .eval(&dict)
@@ -279,6 +297,15 @@ mod test {
         assert_eq!(
             eval(r#"defined "gTestSpaceGuid.PcdTestPcdName""#, &dict).unwrap(),
             true.into()
+        );
+        assert_eq!(eval(r#"undefined "NOBODY""#, &dict).unwrap(), true.into());
+        assert_eq!(
+            eval(r#"undefined "TEST_MACRO""#, &dict).unwrap(),
+            false.into()
+        );
+        assert_eq!(
+            eval(r#"undefined "gTestSpaceGuid.PcdTestPcdName""#, &dict).unwrap(),
+            false.into()
         );
     }
 }
