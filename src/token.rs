@@ -52,6 +52,8 @@ impl ExprOp {
             ExprOp::Gt => Some(ExprOp::Le),
             ExprOp::Le => Some(ExprOp::Gt),
             ExprOp::Lt => Some(ExprOp::Ge),
+            ExprOp::In => Some(ExprOp::NotIn),
+            ExprOp::NotIn => Some(ExprOp::In),
             ExprOp::Defined => Some(ExprOp::Undefined),
             ExprOp::Undefined => Some(ExprOp::Defined),
             _ => None,
